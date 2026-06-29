@@ -1,0 +1,67 @@
+name: Philadelphia PA Scheduled Run
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily 10:30 AM India time.
+    # GitHub schedule supports POSIX cron. This timezone field keeps the time in IST.
+    - cron: "30 10 * * *"
+      timezone: "Asia/Kolkata"
+
+jobs:
+  run-pa-tool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Show versions
+        run: |
+          python --version
+          "${{ steps.setup-chrome.outputs.chrome-path }}" --version
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check input file
+        run: |
+          ls -la
+          test -f PA.txt
+          echo "PA.txt found"
+
+      - name: Run Philadelphia PA tool
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: |
+          python -u Philadelphia_PA_AddressSearch_Tool.py 2>&1 | tee run.log
+
+      - name: Upload Excel output and debug files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Philadelphia-PA-Output
+          path: |
+            *.xlsx
+            run.log
+            error_*.png
+            error_*.html
+            fatal_error.png
+            fatal_error.html
+          if-no-files-found: ignore
+          retention-days: 7
